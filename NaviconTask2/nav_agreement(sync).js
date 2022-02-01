@@ -68,7 +68,6 @@ Navicon.nav_agreement = (function () {
             formContext.getControl("nav_creditid").removePreSearch(addCustomFilterForCredit);
         }
 
-
         if (!autoValue) {
             return;
         }
@@ -76,23 +75,27 @@ Navicon.nav_agreement = (function () {
         autoId = autoId.toLowerCase().substring(1, autoId.length - 1);
         console.log(autoId);
 
-        Xrm.WebApi.retrieveMultipleRecords("nav_nav_credit_nav_auto", "?$select=nav_creditid&$filter=nav_autoid eq " + autoId).then(
-            function success(result) {
-                autoFilter += "<filter type='or'><condition attribute='nav_creditid' operator='eq' value='00000000-0000-0000-0000-000000000000'/>";
-                for (var i = 0; i < result.entities.length; i++) {
-                    console.log(result.entities[i]);
-                    autoFilter += "<condition attribute='nav_creditid' operator='eq' value='" + result.entities[i].nav_creditid + "'/>";
-                }
-                autoFilter += "</filter>";
+        var req = new XMLHttpRequest();
+        req.open("GET", Xrm.Utility.getGlobalContext().getClientUrl() +
+            "/api/data/v9.0/nav_nav_credit_nav_autoset?$select=nav_creditid&$filter=nav_autoid eq " + autoId, false);
 
-                console.log(autoFilter);
+        req.send();
+        if (req.status != 200) {
+            console.error(req.status + ': ' + req.statusText);
+            return;
+        }
 
-                formContext.getControl("nav_creditid").addPreSearch(addCustomFilterForCredit);
-            },
-            function (error) {
-                console.log(error.message);
-            }
-        );
+        let reqObj = JSON.parse(req.response);
+
+        autoFilter += "<filter type='or'><condition attribute='nav_creditid' operator='eq' value='00000000-0000-0000-0000-000000000000'/>";
+        for (let i = 0; i < reqObj.value.length; i++) {
+            autoFilter += "<condition attribute='nav_creditid' operator='eq' value='" + reqObj.value[i].nav_creditid + "'/>";
+        }
+        autoFilter += "</filter>";
+
+        console.log(autoFilter);
+
+        formContext.getControl("nav_creditid").addPreSearch(addCustomFilterForCredit);
     }
 
     /**
