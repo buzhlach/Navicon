@@ -4,68 +4,53 @@ Navicon.nav_agreement = (function () {
 
     /**
      * Если изменилось значение полей Контакт или Автомобиль показать Кредитныую программу.
-     * @param {*} context 
      */
-    let onContactOrAutoChanged = function (context) {
-        let formContext = context.getFormContext();
+    let onContactOrAutoChanged = function () {
 
-        let contactValue = formContext.getAttribute("nav_contact").getValue();
-        let autoIdValue = formContext.getAttribute("nav_autoid").getValue();
-
-        let creditIdControl = formContext.getControl("nav_creditid");
-
-        if (!creditIdControl) {
-            alert("try to get nav_creditid control, but get null");
-            return;
-        }
+        let contactValue = Xrm.Page.getAttribute("nav_contact").getValue();
+        let autoIdValue = Xrm.Page.getAttribute("nav_autoid").getValue();
 
         if (contactValue && autoIdValue) {
-            creditIdControl.setVisible(true);
+            changeControlVisible(["nav_summa", "nav_fact", "nav_creditid"], true);
         }
-        else creditIdControl.setVisible(false);
+        else {
+            changeControlVisible(["nav_summa", "nav_fact", "nav_creditid"], false);
+        }
     };
 
     /**
      * Если изменилось поле Кредитная программа показать поля связанные с кредитом.
-     * @param {*} context 
      */
-    let onCreditIdChanged = function (context) {
-        let formContext = context.getFormContext();
+    let onCreditIdChanged = function () {
 
-        let creditIdValue = formContext.getAttribute("nav_creditid").getValue();
+        let creditIdValue = Xrm.Page.getAttribute("nav_creditid").getValue();
 
-        let summaControl = formContext.getControl("nav_summa");
-        let factControl = formContext.getControl("nav_fact");
-        let creditTab = formContext.ui.tabs.get("tab_2");
+        let creditTab = Xrm.Page.ui.tabs.get("tab_2");
 
-        if (!summaControl && !factControl && !creditTab) {
-            alert("try to get nav_summa and nav_fact controls, tab_2 but get null");
+        if (!creditTab) {
+            console.error("try to get tab_2 but get null");
             return;
         }
 
         if (creditIdValue) {
-            changeControlVisible(context, ["nav_summa", "nav_fact"], true);
             creditTab.setVisible(true);
         }
         else {
-            changeControlVisible(context, ["nav_summa", "nav_fact"], false);
             creditTab.setVisible(false);
         }
     };
 
     /**
      * Фильтрует поле Кредтная программа по связи с полем Автомобиль
-     * @param {*} context 
      */
-    var filterAuto = function (context) {
+    var filterCreditByAuto = function () {
 
-        let formContext = context.getFormContext();
-        let autoValue = formContext.getAttribute("nav_autoid").getValue();
+        let autoValue = Xrm.Page.getAttribute("nav_autoid").getValue();
         let autoFilter = "";
 
         var addCustomFilterForCredit = function () {
-            formContext.getControl("nav_creditid").addCustomFilter(autoFilter);
-            formContext.getControl("nav_creditid").removePreSearch(addCustomFilterForCredit);
+            Xrm.Page.getControl("nav_creditid").addCustomFilter(autoFilter);
+            Xrm.Page.getControl("nav_creditid").removePreSearch(addCustomFilterForCredit);
         }
 
 
@@ -79,7 +64,7 @@ Navicon.nav_agreement = (function () {
         Xrm.WebApi.retrieveMultipleRecords("nav_nav_credit_nav_auto", "?$select=nav_creditid&$filter=nav_autoid eq " + autoId).then(
             function success(result) {
                 autoFilter += "<filter type='or'><condition attribute='nav_creditid' operator='eq' value='00000000-0000-0000-0000-000000000000'/>";
-                for (var i = 0; i < result.entities.length; i++) {
+                for (let i = 0; i < result.entities.length; i++) {
                     console.log(result.entities[i]);
                     autoFilter += "<condition attribute='nav_creditid' operator='eq' value='" + result.entities[i].nav_creditid + "'/>";
                 }
@@ -87,7 +72,7 @@ Navicon.nav_agreement = (function () {
 
                 console.log(autoFilter);
 
-                formContext.getControl("nav_creditid").addPreSearch(addCustomFilterForCredit);
+                Xrm.Page.getControl("nav_creditid").addPreSearch(addCustomFilterForCredit);
             },
             function (error) {
                 console.log(error.message);
@@ -97,21 +82,62 @@ Navicon.nav_agreement = (function () {
 
     /**
     * Если поле Автомобиль изменено показать в поле Кредитные программы только связанные объекты.
-    * @param {*} context
     */
-    let onAutoChanged = function (context) {
-        let formContext = context.getFormContext();
-        // formContext.getAttribute("nav_creditid").setValue(null);
-        filterAuto(context);
+    let onAutoChanged = function () {
+        // Xrm.Page.getAttribute("nav_creditid").setValue(null);
+        filterCreditByAuto();
+        setAgreementPrice();
+    }
+
+    /**
+     * Проставляет цену договора, если выбрана машина.
+     */
+    let setAgreementPrice = function(){
+        let autoValue = Xrm.Page.getAttribute("nav_autoid").getValue();
+        let amountAttr = Xrm.Page.getAttribute("nav_summa");
+
+        if (!autoValue) {
+            return;
+        }
+
+        if(!amountAttr){
+            return;
+        }
+
+        autoId = autoValue[0].id;
+        autoId = autoId.toLowerCase().substring(1, autoId.length - 1);
+        
+        Xrm.WebApi.retrieveRecord("nav_auto", autoId, "?$select=nav_used,nav_amount,_nav_modelid_value").then(
+            function success(result) {
+                if(result.nav_used){
+                    amountAttr.setValue(result.nav_amount);
+                    return;
+                }
+
+                let modelid = result._nav_modelid_value;
+                console.log(modelid);
+
+                Xrm.WebApi.retrieveRecord("nav_model", modelid, "?$select=nav_recommendedamount").then(
+                    function success(result) {
+                        console.log(result);
+                        amountAttr.setValue(result.nav_recommendedamount);
+                    },
+                    function (error) {
+                        console.log(error.message);
+                    }
+                );
+            },
+            function (error) {
+                console.log(error.message);
+            }
+        );
     }
 
     /**
      * Если поле Номер договора изменено оставить только цифры и -.
-     * @param {*} context 
      */
-    let onNameChanged = function (context) {
-        let formContext = context.getFormContext();
-        let nameAttr = formContext.getAttribute("nav_name");
+    let onNameChanged = function () {
+        let nameAttr = Xrm.Page.getAttribute("nav_name");
 
         let nameValue = nameAttr.getValue();
         nameValue = nameValue.replace(/[^\d\-]/g, '');
@@ -121,14 +147,12 @@ Navicon.nav_agreement = (function () {
 
     /**
      * Меняет видимость у control именам controlNames.
-     * @param {*} context 
      * @param {Array} controlNames Имена всех control.
      * @param {boolean} visible Параметр видимости.
      */
-    let changeControlVisible = function (context, controlNames, visible) {
+    let changeControlVisible = function ( controlNames, visible) {
         controlNames.forEach(element => {
-            let formContext = context.getFormContext();
-            let disableControl = formContext.getControl(element);
+            let disableControl = Xrm.Page.getControl(element);
 
             if (disableControl) {
                 disableControl.setVisible(visible);
@@ -142,14 +166,11 @@ Navicon.nav_agreement = (function () {
 
     /**
      * Скрывает при загрузке все поля кроме номер, дата договора, контакт и модель. 
-     * @param {*} context 
      */
-    let hideFildsOnLoad = function (context) {
-        changeControlVisible(context, ["nav_summa", "nav_fact", "nav_creditid"], false);
+    let hideFildsOnLoad = function () {
+        changeControlVisible( ["nav_summa", "nav_fact", "nav_creditid"], false);
 
-        let formContext = context.getFormContext();
-
-        let disableControl = formContext.ui.tabs.get("tab_2");
+        let disableControl = Xrm.Page.ui.tabs.get("tab_2");
         if (disableControl) {
             disableControl.setVisible(false);
         }
@@ -160,21 +181,70 @@ Navicon.nav_agreement = (function () {
 
     /**
      * Показать поле Кредитная программа, если поля Контакт и Автомобиль не пустые.
-     * @param {*} context 
      */
-    let showCreditIfAutoAndContactNotNull = function (context) {
-        let formContext = context.getFormContext();
+    let showCreditIfAutoAndContactNotNull = function () {
 
-        let contactAttr = formContext.getAttribute("nav_contact");
-        let autoIdAttr = formContext.getAttribute("nav_autoid");
+        let contactAttr = Xrm.Page.getAttribute("nav_contact");
+        let autoIdAttr = Xrm.Page.getAttribute("nav_autoid");
 
         if (!contactAttr || !autoIdAttr) {
             alert("try to get nav_contact and nav_autoid attr, but get null");
             return;
         }
-        onContactOrAutoChanged(context);
+        onContactOrAutoChanged();
         contactAttr.addOnChange(onContactOrAutoChanged);
         autoIdAttr.addOnChange(onContactOrAutoChanged);
+    }
+
+    /**
+     * Блокирует сохранение, если Кредитная программа истекла
+     * @param {*} saveEvent 
+     */
+    let blockSaveIfCreditProgramExpired = function (saveEvent) {
+        let creditIdAttr = Xrm.Page.getAttribute("nav_creditid");
+        let agreementDateAttr = Xrm.Page.getAttribute("nav_date");
+
+        if (!agreementDateAttr) {
+            console.error("try to get nav_date, but get null");
+            return;
+        }
+
+        if (!creditIdAttr) {
+            console.error("try to get nav_creditid, but get null");
+            return;
+        }
+
+        let creditIdValue = creditIdAttr.getValue();
+        let agreementDate = agreementDateAttr.getValue();
+
+        if (!agreementDate) {
+            console.error("try to get nav_date, but get null");
+            return;
+        }
+
+        if (!creditIdValue) {
+            console.error("try to get nav_creditid, but get null");
+            return;
+        }
+
+        let creditId = creditIdValue[0].id;
+        creditId = creditId.toLowerCase().substring(1, creditId.length - 1);
+
+        Xrm.WebApi.retrieveRecord("nav_credit", creditId, "?$select=nav_dateend").then(
+            function success(result) {
+                let dateEnd = Date.parse(result.nav_dateend);
+                console.log(dateEnd);
+                console.log(agreementDate);
+
+                if (dateEnd - agreementDate < 0) {
+                    alert("The selected credit program has already expired");
+                    saveEvent.preventDefault();
+                }
+            },
+            function (error) {
+                console.log(error.message);
+            }
+        );
     }
 
 
@@ -182,27 +252,20 @@ Navicon.nav_agreement = (function () {
 
         /**
          * Выполняется при загрузке формы.
-         * @param {*} context 
          */
-        onLoad: function (context) {
-            let formContext = context.getFormContext();
+        onLoad: function () {
 
-            if (!formContext) {
-                alert("try to get formContext control, but get null");
-                return;
-            }
-
-            hideFildsOnLoad(context);
+            hideFildsOnLoad();
 
 
-            showCreditIfAutoAndContactNotNull(context);
+            showCreditIfAutoAndContactNotNull();
 
             //#region Открыть поля связанные с кредитом, если поле Кредитная программа не пустое.
 
-            let creditIdAttr = formContext.getAttribute("nav_creditid");
+            let creditIdAttr = Xrm.Page.getAttribute("nav_creditid");
 
             if (creditIdAttr) {
-                onCreditIdChanged(context);
+                onCreditIdChanged();
                 creditIdAttr.addOnChange(onCreditIdChanged);
             }
             else {
@@ -212,7 +275,7 @@ Navicon.nav_agreement = (function () {
 
             //#region Показывать в поиске Кредитные программы только связанные с Автомобилем.
 
-            let autoIdAttr = formContext.getAttribute("nav_autoid");
+            let autoIdAttr = Xrm.Page.getAttribute("nav_autoid");
 
             if (autoIdAttr) {
                 autoIdAttr.addOnChange(onAutoChanged);
@@ -223,9 +286,18 @@ Navicon.nav_agreement = (function () {
             //#endregion
 
             //#region После редактирования оставить в поле Номер договора только цифры и -.
-            let nameControl = formContext.getAttribute("nav_name");
+            let nameControl = Xrm.Page.getAttribute("nav_name");
             nameControl.addOnChange(onNameChanged);
             //#endregion
+        },
+
+        /**
+         * Выполняется при сохранении формы.
+         */
+        onSave: function (context) {
+            let saveEvent = context.getEventArgs();
+
+            blockSaveIfCreditProgramExpired(Xrm.Page, saveEvent);
         }
     }
 })();

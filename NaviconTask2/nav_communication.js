@@ -3,15 +3,13 @@ var Navicon = Navicon || {};
 Navicon.nav_communication = (function () {
     /**
      * Если изменяется Тип связи, открываются или закрываются поля Телефон, Email.
-     * @param {*} context 
      */
-    let onTypeChanged = function (context) {
-        let formContext = context.getFormContext();
+    let onTypeChanged = function () {
 
-        let typeValue = formContext.getAttribute("nav_type").getValue();
+        let typeValue = Xrm.Page.getAttribute("nav_type").getValue();
 
-        let phoneControl = formContext.getControl("nav_phone");
-        let emailControl = formContext.getControl("nav_email");
+        let phoneControl = Xrm.Page.getControl("nav_phone");
+        let emailControl = Xrm.Page.getControl("nav_email");
 
         if (typeValue) {
             if (phoneControl && typeValue == 1) {
@@ -24,20 +22,18 @@ Navicon.nav_communication = (function () {
             }
         }
         else {
-            changeControlVisible(context, ["nav_phone", "nav_email"], false);
+            changeControlVisible(["nav_phone", "nav_email"], false);
         };
     }
 
     /**
  * Меняет видимость у control именам controlNames.
- * @param {*} context 
  * @param {Array} controlNames Имена всех control.
  * @param {boolean} visible Параметр видимости.
  */
-    let changeControlVisible = function (context, controlNames, visible) {
+    let changeControlVisible = function (controlNames, visible) {
         controlNames.forEach(element => {
-            let formContext = context.getFormContext();
-            let disableControl = formContext.getControl(element);
+            let disableControl = Xrm.Page.getControl(element);
 
             if (disableControl) {
                 disableControl.setVisible(visible);
@@ -51,20 +47,15 @@ Navicon.nav_communication = (function () {
 
         /**
          * Выполняется при загрузке формы.
-         * @param {*} context 
          */
-        onLoad: function (context) {
-            let formContext = context.getFormContext();
+        onLoad: function () {
 
-            if (!formContext) {
-                alert("try to get formContext control, but get null");
-            }
-            changeControlVisible(context, ["nav_phone", "nav_email"], false);
+            changeControlVisible(["nav_phone", "nav_email"], false);
 
-            let typeAttr = formContext.getAttribute("nav_type");
+            let typeAttr = Xrm.Page.getAttribute("nav_type");
 
             if (typeAttr) {
-                onTypeChanged(context);
+                onTypeChanged();
                 typeAttr.addOnChange(onTypeChanged);
             }
             else {

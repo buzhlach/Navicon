@@ -7,16 +7,10 @@ Navicon.nav_credit = (function () {
          * @param {*} context 
          */
         onSave: function (context) {
-            let formContext = context.getFormContext();
             let saveEvent = context.getEventArgs();
 
-            if (!formContext) {
-                alert("try to get formContext control, but get null");
-                return;
-            }
-
-            let dateStartAttr = formContext.getAttribute("nav_datestart");
-            let dateEndAttr = formContext.getAttribute("nav_dateend");
+            let dateStartAttr = Xrm.Page.getAttribute("nav_datestart");
+            let dateEndAttr = Xrm.Page.getAttribute("nav_dateend");
             if (!dateStartAttr || !dateEndAttr) {
                 alert("try to get nav_datestart and nav_dateend control, but get null");
                 return;

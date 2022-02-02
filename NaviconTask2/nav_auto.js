@@ -3,25 +3,21 @@ var Navicon = Navicon || {};
 Navicon.nav_auto = (function () {
     /**
      * Если поле С пробегом true, то открывает поля, связанные с пробегом.
-     * @param {*} context 
      */
-    let onUsedChanged = function (context) {
-        let formContext = context.getFormContext();
+    let onUsedChanged = function () {
 
-        let usedValue = formContext.getAttribute("nav_used").getValue();
-        changeControlVisible(context, ["nav_km", "nav_ownerscount", "nav_isdamaged"], usedValue);
+        let usedValue = Xrm.Page.getAttribute("nav_used").getValue();
+        changeControlVisible(["nav_km", "nav_ownerscount", "nav_isdamaged"], usedValue);
     }
 
     /**
 * Меняет видимость у control именам controlNames.
-* @param {*} context 
 * @param {Array} controlNames Имена всех control.
 * @param {boolean} visible Параметр видимости.
 */
-    let changeControlVisible = function (context, controlNames, visible) {
+    let changeControlVisible = function (controlNames, visible) {
         controlNames.forEach(element => {
-            let formContext = context.getFormContext();
-            let disableControl = formContext.getControl(element);
+            let disableControl = Xrm.Page.getControl(element);
 
             if (disableControl) {
                 disableControl.setVisible(visible);
@@ -36,22 +32,15 @@ Navicon.nav_auto = (function () {
 
         /**
          * Выполняется при загрузке формы.
-         * @param {*} context 
          */
-        onLoad: function (context) {
-            let formContext = context.getFormContext();
+        onLoad: function () {
 
-            if (!formContext) {
-                alert("try to get formContext control, but get null");
-                return;
-            }
+            changeControlVisible(["nav_km", "nav_ownerscount", "nav_isdamaged"], false);
 
-            changeControlVisible(context, ["nav_km", "nav_ownerscount", "nav_isdamaged"], false);
-
-            let usedAttr = formContext.getAttribute("nav_used");
+            let usedAttr = Xrm.Page.getAttribute("nav_used");
 
             if (usedAttr) {
-                onUsedChanged(context);
+                onUsedChanged();
                 usedAttr.addOnChange(onUsedChanged);
             }
             else {
