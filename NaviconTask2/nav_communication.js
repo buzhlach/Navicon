@@ -2,26 +2,46 @@ var Navicon = Navicon || {};
 
 Navicon.nav_communication = (function () {
     /**
-     * Если изменяется Тип связи, открываются или закрываются поля Телефон, Email.
+     * Установка обработчков для изменения Тип связи.
      */
     let onTypeChanged = function () {
 
-        let typeValue = Xrm.Page.getAttribute("nav_type").getValue();
+        let typeAttr = Xrm.Page.getAttribute("nav_type");
 
+        if (!typeAttr) {
+            alert("don't have all fields for onTypeChanged");
+        }
+        hidePhoneOrEmail()
+        typeAttr.addOnChange(hidePhoneOrEmail);
+    }
+
+    /**
+     * Если изменяется Тип связи, открываются или закрываются поля Телефон, Email.
+     */
+    let hidePhoneOrEmail = function () {
+        let typeValueAttr = Xrm.Page.getAttribute("nav_type");
         let phoneControl = Xrm.Page.getControl("nav_phone");
         let emailControl = Xrm.Page.getControl("nav_email");
 
+        if (!typeValueAttr || !phoneControl || !emailControl) {
+            alert("don't have all fields for hidePhoneOrEmail");
+        }
+
+        typeValue = typeValueAttr.getValue();
+
         if (typeValue) {
-            if (phoneControl && typeValue == 1) {
+            if (typeValue == 1) {
                 phoneControl.setVisible(true);
                 emailControl.setVisible(false);
             }
-            else if (emailControl && typeValue == 2) {
+            else if (typeValue == 2) {
                 emailControl.setVisible(true);
                 phoneControl.setVisible(false);
             }
         }
         else {
+            let communicationControls = ["nav_phone", "nav_email"];
+            changeControlVisible(communicationControls, false);
             changeControlVisible(["nav_phone", "nav_email"], false);
         };
     }
@@ -50,17 +70,9 @@ Navicon.nav_communication = (function () {
          */
         onLoad: function () {
 
-            changeControlVisible(["nav_phone", "nav_email"], false);
-
-            let typeAttr = Xrm.Page.getAttribute("nav_type");
-
-            if (typeAttr) {
-                onTypeChanged();
-                typeAttr.addOnChange(onTypeChanged);
-            }
-            else {
-                alert("try to get nav_type attr, but get null");
-            }
+            let communicationControls = ["nav_phone", "nav_email"];
+            changeControlVisible(communicationControls, false);
+            onTypeChanged();
         }
     }
 })();

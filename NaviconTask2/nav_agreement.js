@@ -3,34 +3,53 @@ var Navicon = Navicon || {};
 Navicon.nav_agreement = (function () {
 
     /**
-     * Если изменилось значение полей Контакт или Автомобиль показать Кредитныую программу.
+     * Если изменилось значение полей Контакт или Автомобиль показать Кредитную программу, сумму и поле оплачен.
      */
     let onContactOrAutoChanged = function () {
 
-        let contactValue = Xrm.Page.getAttribute("nav_contact").getValue();
-        let autoIdValue = Xrm.Page.getAttribute("nav_autoid").getValue();
+        let contactAttr = Xrm.Page.getAttribute("nav_contact");
+        let autoAttr = Xrm.Page.getAttribute("nav_autoid");
+
+        if (!contactAttr || !autoAttr) {
+            console.error("don't have all parameters for onContactOrAutoChanged");
+            return;
+        }
+
+        let controlsToHide = ["nav_summa", "nav_fact", "nav_creditid"];
+
+        let contactValue = contactAttr.getValue();
+        let autoIdValue = autoAttr.getValue();
 
         if (contactValue && autoIdValue) {
-            changeControlVisible(["nav_summa", "nav_fact", "nav_creditid"], true);
+            changeControlVisible(controlsToHide, true);
         }
         else {
-            changeControlVisible(["nav_summa", "nav_fact", "nav_creditid"], false);
+            changeControlVisible(controlsToHide, false);
         }
     };
 
     /**
-     * Если изменилось поле Кредитная программа показать поля связанные с кредитом.
+     * Если изменилось поле Кредитная программа.
      */
     let onCreditIdChanged = function () {
+        showCreditTabIfCreditNotNull();
+        setCreditPeriodIfCreditNotNull();
+    };
 
-        let creditIdValue = Xrm.Page.getAttribute("nav_creditid").getValue();
-
+    /**
+     * Показать вкладку Кредит, если заполнено поле Кредитная программа.
+     * @returns 
+     */
+    let showCreditTabIfCreditNotNull = function () {
+        let creditIdAttr = Xrm.Page.getAttribute("nav_creditid");
         let creditTab = Xrm.Page.ui.tabs.get("tab_2");
 
-        if (!creditTab) {
-            console.error("try to get tab_2 but get null");
+        if (!creditTab || !creditIdAttr) {
+            console.error("don't have all parameters for showCreditTabIfCreditNotNull");
             return;
         }
+
+        let creditIdValue = creditIdAttr.getValue();
 
         if (creditIdValue) {
             creditTab.setVisible(true);
@@ -38,53 +57,103 @@ Navicon.nav_agreement = (function () {
         else {
             creditTab.setVisible(false);
         }
-    };
+    }
+
+    /**
+     * Установить поле Срок кредита, если заполнено поле Кредитная программа.
+     * @returns 
+     */
+    let setCreditPeriodIfCreditNotNull = function () {
+        let creditIdAttr = Xrm.Page.getAttribute("nav_creditid");
+        let creditPeriodAttr = Xrm.Page.getAttribute("nav_creditperiod");
+
+        if (!creditIdAttr || !creditPeriodAttr) {
+            console.error("don't have all parameters for setCreditPeriodIfCreditNotNull");
+            return;
+        }
+
+        let creditIdValue = creditIdAttr.getValue();
+
+        if (!creditIdValue) {
+            return;
+        }
+
+        let creditId = creditIdValue[0].id;
+        creditId = creditId.toLowerCase().substring(1, creditId.length - 1);
+
+        let req = new XMLHttpRequest();
+        req.open("GET", Xrm.Utility.getGlobalContext().getClientUrl() +
+            "/api/data/v9.0/nav_credits?$select=nav_creditperiod&$filter=nav_creditid eq " + creditId, false);
+
+        req.send();
+        if (req.status != 200) {
+            console.error(req.status + ': ' + req.statusText);
+            return;
+        }
+
+        let reqObj = JSON.parse(req.response);
+
+        let creditPeriod = reqObj.value[0].nav_creditperiod;
+        creditPeriodAttr.setValue(creditPeriod);
+    }
 
     /**
      * Фильтрует поле Кредтная программа по связи с полем Автомобиль
      */
     var filterCreditByAuto = function () {
 
-        let autoValue = Xrm.Page.getAttribute("nav_autoid").getValue();
-        let autoFilter = "";
+        let autoAttr = Xrm.Page.getAttribute("nav_autoid");
+        let creditIdControl = Xrm.Page.getControl("nav_creditid");
 
-        var addCustomFilterForCredit = function () {
-            Xrm.Page.getControl("nav_creditid").addCustomFilter(autoFilter);
-            Xrm.Page.getControl("nav_creditid").removePreSearch(addCustomFilterForCredit);
+        if (!autoAttr || !creditIdControl) {
+            console.error("don't have all parameters for filterCreditByAuto");
+            return;
         }
 
+        let autoValue = autoAttr.getValue();
 
         if (!autoValue) {
             return;
         }
+
+        let autoFilter = "";
+
+        var addCustomFilterForCredit = function () {
+            creditIdControl.addCustomFilter(autoFilter);
+            creditIdControl.removePreSearch(addCustomFilterForCredit);
+        }
+
         autoId = autoValue[0].id;
         autoId = autoId.toLowerCase().substring(1, autoId.length - 1);
         console.log(autoId);
 
-        Xrm.WebApi.retrieveMultipleRecords("nav_nav_credit_nav_auto", "?$select=nav_creditid&$filter=nav_autoid eq " + autoId).then(
-            function success(result) {
-                autoFilter += "<filter type='or'><condition attribute='nav_creditid' operator='eq' value='00000000-0000-0000-0000-000000000000'/>";
-                for (let i = 0; i < result.entities.length; i++) {
-                    console.log(result.entities[i]);
-                    autoFilter += "<condition attribute='nav_creditid' operator='eq' value='" + result.entities[i].nav_creditid + "'/>";
-                }
-                autoFilter += "</filter>";
+        let req = new XMLHttpRequest();
+        req.open("GET", Xrm.Utility.getGlobalContext().getClientUrl() +
+            "/api/data/v9.0/nav_nav_credit_nav_autoset?$select=nav_creditid&$filter=nav_autoid eq " + autoId, false);
 
-                console.log(autoFilter);
+        req.send();
+        if (req.status != 200) {
+            console.error(req.status + ': ' + req.statusText);
+            return;
+        }
 
-                Xrm.Page.getControl("nav_creditid").addPreSearch(addCustomFilterForCredit);
-            },
-            function (error) {
-                console.log(error.message);
-            }
-        );
+        let reqObj = JSON.parse(req.response);
+
+        autoFilter += "<filter type='or'><condition attribute='nav_creditid' operator='eq' value='00000000-0000-0000-0000-000000000000'/>";
+        for (let i = 0; i < reqObj.value.length; i++) {
+            autoFilter += "<condition attribute='nav_creditid' operator='eq' value='" + reqObj.value[i].nav_creditid + "'/>";
+        }
+        autoFilter += "</filter>";
+
+        console.log(autoFilter);
+
+        creditIdControl.addPreSearch(addCustomFilterForCredit);
     }
 
     /**
     * Если поле Автомобиль изменено показать в поле Кредитные программы только связанные объекты.
     */
     let onAutoChanged = function () {
-        // Xrm.Page.getAttribute("nav_creditid").setValue(null);
         filterCreditByAuto();
         setAgreementPrice();
     }
@@ -92,40 +161,42 @@ Navicon.nav_agreement = (function () {
     /**
      * Проставляет цену договора, если выбрана машина.
      */
-    let setAgreementPrice = function(){
-        let autoValue = Xrm.Page.getAttribute("nav_autoid").getValue();
+    let setAgreementPrice = function () {
+        let autoAttr = Xrm.Page.getAttribute("nav_autoid");
         let amountAttr = Xrm.Page.getAttribute("nav_summa");
+
+        if (!amountAttr || !autoAttr) {
+            console.error("don't have all parameters for setAgreementPrice");
+            return;
+        }
+
+        let autoValue = autoAttr.getValue();
 
         if (!autoValue) {
             return;
         }
 
-        if(!amountAttr){
-            return;
-        }
-
         autoId = autoValue[0].id;
         autoId = autoId.toLowerCase().substring(1, autoId.length - 1);
-        
-        Xrm.WebApi.retrieveRecord("nav_auto", autoId, "?$select=nav_used,nav_amount,_nav_modelid_value").then(
+
+        var fetchXml = "?fetchXml=<fetch mapping='logical'><entity name='nav_auto'>" +
+            "<attribute name='nav_used'/><attribute name='nav_amount'/>" +
+            "<filter type='or'><condition attribute='nav_autoid' operator='eq' value='" + autoId + "'/></filter>" +
+            "<link-entity name='nav_model' alias='nm' to='nav_modelid' from='nav_modelid' link-type='inner'>" +
+            "<attribute name='nav_recommendedamount'/>" +
+            "</link-entity>" +
+            "</entity></fetch>";
+
+        Xrm.WebApi.retrieveMultipleRecords("nav_auto", fetchXml).then(
             function success(result) {
-                if(result.nav_used){
-                    amountAttr.setValue(result.nav_amount);
-                    return;
+                console.log(result);
+
+                if (result.entities[0].nav_used) {
+                    amountAttr.setValue(result.entities[0].nav_amount);
                 }
-
-                let modelid = result._nav_modelid_value;
-                console.log(modelid);
-
-                Xrm.WebApi.retrieveRecord("nav_model", modelid, "?$select=nav_recommendedamount").then(
-                    function success(result) {
-                        console.log(result);
-                        amountAttr.setValue(result.nav_recommendedamount);
-                    },
-                    function (error) {
-                        console.log(error.message);
-                    }
-                );
+                else {
+                    amountAttr.setValue(result.entities[0]["nm.nav_recommendedamount"]);
+                }
             },
             function (error) {
                 console.log(error.message);
@@ -137,10 +208,19 @@ Navicon.nav_agreement = (function () {
      * Если поле Номер договора изменено оставить только цифры и -.
      */
     let onNameChanged = function () {
+        let regex = /[^\d\-]/g;
+    }
+
+    let formatNameByRegex = function (regex) {
         let nameAttr = Xrm.Page.getAttribute("nav_name");
 
+        if (!nameAttr) {
+            console.error("don't have all parameters for formatNameByRegex");
+            return;
+        }
         let nameValue = nameAttr.getValue();
-        nameValue = nameValue.replace(/[^\d\-]/g, '');
+
+        nameValue = nameValue.replace(regex, '');
 
         nameAttr.setValue(nameValue);
     }
@@ -150,7 +230,7 @@ Navicon.nav_agreement = (function () {
      * @param {Array} controlNames Имена всех control.
      * @param {boolean} visible Параметр видимости.
      */
-    let changeControlVisible = function ( controlNames, visible) {
+    let changeControlVisible = function (controlNames, visible) {
         controlNames.forEach(element => {
             let disableControl = Xrm.Page.getControl(element);
 
@@ -168,7 +248,9 @@ Navicon.nav_agreement = (function () {
      * Скрывает при загрузке все поля кроме номер, дата договора, контакт и модель. 
      */
     let hideFildsOnLoad = function () {
-        changeControlVisible( ["nav_summa", "nav_fact", "nav_creditid"], false);
+
+        hiddenFields = ["nav_summa, nav_fact, nav_creditid"];
+        changeControlVisible(hiddenFields, false);
 
         let disableControl = Xrm.Page.ui.tabs.get("tab_2");
         if (disableControl) {
@@ -183,14 +265,14 @@ Navicon.nav_agreement = (function () {
      * Показать поле Кредитная программа, если поля Контакт и Автомобиль не пустые.
      */
     let showCreditIfAutoAndContactNotNull = function () {
-
         let contactAttr = Xrm.Page.getAttribute("nav_contact");
         let autoIdAttr = Xrm.Page.getAttribute("nav_autoid");
 
         if (!contactAttr || !autoIdAttr) {
-            alert("try to get nav_contact and nav_autoid attr, but get null");
+            alert("don't have all fields for showCreditIfAutoAndContactNotNull");
             return;
         }
+
         onContactOrAutoChanged();
         contactAttr.addOnChange(onContactOrAutoChanged);
         autoIdAttr.addOnChange(onContactOrAutoChanged);
@@ -200,51 +282,83 @@ Navicon.nav_agreement = (function () {
      * Блокирует сохранение, если Кредитная программа истекла
      * @param {*} saveEvent 
      */
-    let blockSaveIfCreditProgramExpired = function (saveEvent) {
+    let blockSaveIfCreditProgramExpired = function () {
         let creditIdAttr = Xrm.Page.getAttribute("nav_creditid");
         let agreementDateAttr = Xrm.Page.getAttribute("nav_date");
 
-        if (!agreementDateAttr) {
-            console.error("try to get nav_date, but get null");
-            return;
-        }
-
-        if (!creditIdAttr) {
-            console.error("try to get nav_creditid, but get null");
+        if (!agreementDateAttr || !creditIdAttr) {
+            alert("don't have all fields for blockSaveIfCreditProgramExpired");
             return;
         }
 
         let creditIdValue = creditIdAttr.getValue();
         let agreementDate = agreementDateAttr.getValue();
 
-        if (!agreementDate) {
-            console.error("try to get nav_date, but get null");
-            return;
-        }
-
-        if (!creditIdValue) {
-            console.error("try to get nav_creditid, but get null");
+        if (!agreementDate || !creditIdValue) {
+            alert("don't have all fields for blockSaveIfCreditProgramExpired");
             return;
         }
 
         let creditId = creditIdValue[0].id;
         creditId = creditId.toLowerCase().substring(1, creditId.length - 1);
 
-        Xrm.WebApi.retrieveRecord("nav_credit", creditId, "?$select=nav_dateend").then(
-            function success(result) {
-                let dateEnd = Date.parse(result.nav_dateend);
-                console.log(dateEnd);
-                console.log(agreementDate);
+        let req = new XMLHttpRequest();
+        req.open("GET", Xrm.Utility.getGlobalContext().getClientUrl() +
+            "/api/data/v9.0/nav_credits?$select=nav_dateend&$filter=nav_creditid eq " + creditId, false);
 
-                if (dateEnd - agreementDate < 0) {
-                    alert("The selected credit program has already expired");
-                    saveEvent.preventDefault();
-                }
-            },
-            function (error) {
-                console.log(error.message);
-            }
-        );
+        req.send();
+        if (req.status != 200) {
+            console.error(req.status + ': ' + req.statusText);
+            return;
+        }
+
+        let reqObj = JSON.parse(req.response);
+
+        let dateEnd = Date.parse(reqObj.value[0].nav_dateend);
+
+        if (dateEnd - agreementDate < 0) {
+            alert("Выбранная кредитная программа закончила срок своего действия.");
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
+    /**
+     * Установка обработчиков для изменения Кредитной программы.
+     */
+    let creditChanged = function () {
+        let creditIdAttr = Xrm.Page.getAttribute("nav_creditid");
+
+        if (!creditIdAttr) {
+            alert("don't have all fields for creditChanged");
+        }
+        onCreditIdChanged();
+        creditIdAttr.addOnChange(onCreditIdChanged);
+    }
+
+    /**
+     * Установка обработчиков для изменения Автомобиля.
+     */
+    let autoChanged = function () {
+        let autoIdAttr = Xrm.Page.getAttribute("nav_autoid");
+
+        if (!autoIdAttr) {
+            alert("don't have all fields for autoChanged");
+        }
+        autoIdAttr.addOnChange(onAutoChanged);
+    }
+
+    /**
+     * Установка обработчков для изменения Номера договора.
+     */
+    let nameChanged = function () {
+        let nameAttr = Xrm.Page.getAttribute("nav_name");
+        if (!nameAttr) {
+            alert("don't have all fields for nameChanged");
+        }
+        nameAttr.addOnChange(onNameChanged);
     }
 
 
@@ -256,39 +370,10 @@ Navicon.nav_agreement = (function () {
         onLoad: function () {
 
             hideFildsOnLoad();
-
-
             showCreditIfAutoAndContactNotNull();
-
-            //#region Открыть поля связанные с кредитом, если поле Кредитная программа не пустое.
-
-            let creditIdAttr = Xrm.Page.getAttribute("nav_creditid");
-
-            if (creditIdAttr) {
-                onCreditIdChanged();
-                creditIdAttr.addOnChange(onCreditIdChanged);
-            }
-            else {
-                alert("try to get nav_creditid attr, but get null");
-            }
-            //#endregion
-
-            //#region Показывать в поиске Кредитные программы только связанные с Автомобилем.
-
-            let autoIdAttr = Xrm.Page.getAttribute("nav_autoid");
-
-            if (autoIdAttr) {
-                autoIdAttr.addOnChange(onAutoChanged);
-            }
-            else {
-                alert("try to get nav_contact and nav_autoid attr, but get null");
-            }
-            //#endregion
-
-            //#region После редактирования оставить в поле Номер договора только цифры и -.
-            let nameControl = Xrm.Page.getAttribute("nav_name");
-            nameControl.addOnChange(onNameChanged);
-            //#endregion
+            creditChanged();
+            autoChanged();
+            nameChanged()
         },
 
         /**
@@ -297,7 +382,10 @@ Navicon.nav_agreement = (function () {
         onSave: function (context) {
             let saveEvent = context.getEventArgs();
 
-            blockSaveIfCreditProgramExpired(Xrm.Page, saveEvent);
+            let prevent = blockSaveIfCreditProgramExpired();
+            if (prevent) {
+                saveEvent.preventDefault();
+            }
         }
     }
 })();

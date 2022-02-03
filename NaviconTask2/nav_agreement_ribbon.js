@@ -9,38 +9,56 @@ Navicon.nav_agreement_ribbon = (function () {
          */
         recalculateCredit: function () {
             let creditAmountAttr = Xrm.Page.getAttribute("nav_creditamount");
-            let summa = Xrm.Page.getAttribute("nav_summa").getValue();
-            let initialfee = Xrm.Page.getAttribute("nav_initialfee").getValue();
+            let summaAttr = Xrm.Page.getAttribute("nav_summa");
+            let initialfeeAttr = Xrm.Page.getAttribute("nav_initialfee");
             let fullCreditAmountAttr = Xrm.Page.getAttribute("nav_fullcreditamount");
-            let creditId = Xrm.Page.getAttribute("nav_creditid").getValue();
-            let creditPeriod = Xrm.Page.getAttribute("nav_creditperiod").getValue();
+            let creditIdAttr = Xrm.Page.getAttribute("nav_creditid");
+            let creditPeriodAttr = Xrm.Page.getAttribute("nav_creditperiod");
 
-            if(!creditAmountAttr||!summa||!initialfee){
-                console.error("try to get nav_creditamount, nav_summa, nav_initialfee attr but get null");
+            if (!creditAmountAttr || !summaAttr || !initialfeeAttr || !fullCreditAmountAttr || !creditIdAttr || !creditPeriodAttr) {
+                console.error("don't have all fields for recalculateCredit");
                 return;
             }
+
+            let summa = summaAttr.getValue();
+            let initialfee = initialfeeAttr.getValue();
+            let creditId = creditIdAttr.getValue();
+            let creditPeriod = creditPeriodAttr.getValue();
+
+            if (!summa || !creditId ||!creditPeriod) {
+                console.error("don't have all fields for recalculateCredit");
+                return;
+            }
+
+            if (!initialfee) {
+                initialfee = 0;
+            }
+
 
             let newCreditAmount = summa - initialfee;
             creditAmountAttr.setValue(newCreditAmount);
 
-            if(!creditId||!creditPeriod||!fullCreditAmountAttr){
-                console.error("try to get nav_creditid, nav_creditperiod, nav_fullcreditamount attr but get null");
-                return;
-            }
-
             creditId = creditId[0].id;
             creditId = creditId.toLowerCase().substring(1, creditId.length - 1);
 
-            Xrm.WebApi.retrieveRecord("nav_credit", creditId, "?$select=nav_percent").then(
-                function success(result) {
-                    console.log(result);
-                    let newfullCreditAmount = result.nav_percent / 100 * creditPeriod * newCreditAmount + newCreditAmount;
-                    fullCreditAmountAttr.setValue(newfullCreditAmount);
-                },
-                function (error) {
-                    console.log(error.message);
-                }
-            );
+            let req = new XMLHttpRequest();
+            req.open("GET", Xrm.Utility.getGlobalContext().getClientUrl() +
+                "/api/data/v9.0/nav_credits?$select=nav_percent&$filter=nav_creditid eq " + creditId, false);
+
+            req.send();
+            if (req.status != 200) {
+                console.error(req.status + ': ' + req.statusText);
+                return;
+            }
+
+            let reqObj = JSON.parse(req.response);
+
+            if(creditPeriod * newCreditAmount == 0){
+                return;
+            }
+
+            let newfullCreditAmount = reqObj.value[0].nav_percent / 100 * creditPeriod * newCreditAmount + newCreditAmount;
+            fullCreditAmountAttr.setValue(newfullCreditAmount);
 
         }
     }
