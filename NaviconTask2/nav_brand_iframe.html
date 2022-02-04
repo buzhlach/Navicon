@@ -1,0 +1,115 @@
+<html>
+
+<head>
+    <style>
+        body {
+            font-family: 'SegoeUI', 'Segoe UI';
+            font-size: 14px;
+        }
+
+        table,
+        th,
+        td {
+            border: 1px solid rgb(207, 205, 204);;
+            font-size: 14px;
+            border-collapse: collapse;
+            text-align: center;
+        }
+
+        th,td{
+            padding: 5px;
+        }
+    </style>
+    <script>
+        document.onreadystatechange = function () {
+            if (document.readyState == "complete") {
+                onDocumentLoad();
+            }
+        }
+
+        function onDocumentLoad() {
+            let brandId = parent.Xrm.Page.data.entity._entityId.guid;
+            let table = document.getElementById("modelCreditTable");
+            let message = document.getElementById("message");
+
+            if (!brandId || !table || !message) {
+                alert("Ошибка отображения страницы");
+                return;
+            }
+
+            let gridArr = [];
+
+            brandId = brandId.toString();
+
+            var fetchXml = "?fetchXml=<fetch mapping='logical' distinct='true'><entity name='nav_model'>" +
+                "<attribute name='nav_modelid'/><attribute name='nav_name'/>" +
+                "<filter type='or'><condition attribute='nav_brandid' operator='eq' value='" + brandId + "'/></filter>" +
+                "<link-entity name='nav_auto' alias='na' to='nav_modelid' from='nav_modelid' link-type='inner'>" +
+                "<link-entity name='nav_nav_credit_nav_auto' alias='ncna' to='nav_autoid' from='nav_autoid' link-type='inner'>" +
+                "<attribute name='nav_creditid'/>" +
+                "<link-entity name='nav_credit' alias='nc' to='nav_creditid' from='nav_creditid' link-type='inner'>" +
+                "<attribute name='nav_name'/>" +
+                "<attribute name='nav_creditperiod'/>" +
+                "</link-entity>" +
+                "</link-entity>" +
+                "</link-entity>" +
+                "</entity></fetch>";
+
+            parent.Xrm.WebApi.retrieveMultipleRecords("nav_model", fetchXml).then(
+                function success(result) {
+                    console.log(result);
+
+                    if (!result || !result.entities || result.entities.length <= 0) {
+                        table.remove();
+                        message.innerHTML = "Нет связанных кредитных программ";
+                        return;
+                    }
+
+                    for (let i = 0; i < result.entities.length; i++) {
+
+                        let creditId = result.entities[i]["ncna.nav_creditid"]
+                        let creditName = result.entities[i]["nc.nav_name"];
+                        let modelId = result.entities[i].nav_modelid;
+                        let modelName = result.entities[i].nav_name;
+                        let creditPeriod = result.entities[i]["nc.nav_creditperiod"];
+
+                        if (!creditName || !modelName || !creditId || !modelId) {
+                            continue;
+                        }
+
+                        if (!creditPeriod) {
+                            creditPeriod = "";
+                        }
+
+                        let creditDefaultHref = "https://org3fc31321.crm4.dynamics.com/main.aspx?app=d365default&forceUCI=1&pagetype=entityrecord&etn=nav_credit&id=";
+                        let modelDefaultHref = "https://org3fc31321.crm4.dynamics.com/main.aspx?app=d365default&forceUCI=1&pagetype=entityrecord&etn=nav_model&id=";
+
+                        let row = table.insertRow(i + 1);
+                        let creditCell = row.insertCell(0);
+                        let modelCell = row.insertCell(1);
+                        let creditPeriodCell = row.insertCell(2);
+                        creditCell.innerHTML = "<a target=\"_blank\" href=\"" + creditDefaultHref + creditId + "\">" + creditName + "</a>"
+                        modelCell.innerHTML = "<a target=\"_blank\" href=\"" + modelDefaultHref + modelId + "\">" + modelName + "</a>"
+                        creditPeriodCell.innerHTML = creditPeriod;
+                    }
+                },
+                function (error) {
+                    console.log(error.message);
+                }
+            );
+        }
+    </script>
+</head>
+
+<body>
+    <h4 id=message>Получены следующие программы:</h4>
+    <table id="modelCreditTable">
+        <tr>
+            <th>Кредитная программа</th>
+            <th>Модель</th>
+            <th>Срок кредита</th>
+        </tr>
+    </table>
+</body>
+
+</html>
