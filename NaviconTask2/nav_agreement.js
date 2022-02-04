@@ -3,6 +3,11 @@ var Navicon = Navicon || {};
 Navicon.nav_agreement = (function () {
 
     /**
+     * Названия control, которые необходимо прятать при загрузке.
+     */
+    let hiddenControlsNames = ["nav_summa, nav_fact, nav_creditid"];
+
+    /**
      * Если изменилось значение полей Контакт или Автомобиль показать Кредитную программу, сумму и поле оплачен.
      */
     let onContactOrAutoChanged = function () {
@@ -15,16 +20,14 @@ Navicon.nav_agreement = (function () {
             return;
         }
 
-        let controlsToHide = ["nav_summa", "nav_fact", "nav_creditid"];
-
         let contactValue = contactAttr.getValue();
         let autoIdValue = autoAttr.getValue();
 
         if (contactValue && autoIdValue) {
-            changeControlVisible(controlsToHide, true);
+            changeControlVisible(hiddenControlsNames, true);
         }
         else {
-            changeControlVisible(controlsToHide, false);
+            changeControlVisible(hiddenControlsNames, false);
         }
     };
 
@@ -93,7 +96,7 @@ Navicon.nav_agreement = (function () {
 
         let reqObj = JSON.parse(req.response);
 
-        let creditPeriod = reqObj.value[0].nav_creditperiod;
+        let creditPeriod = typeof (reqObj.value[0].nav_creditperiod) != "undefined" ? reqObj.value[0].nav_creditperiod : null;
         creditPeriodAttr.setValue(creditPeriod);
     }
 
@@ -191,11 +194,19 @@ Navicon.nav_agreement = (function () {
             function success(result) {
                 console.log(result);
 
-                if (result.entities[0].nav_used) {
-                    amountAttr.setValue(result.entities[0].nav_amount);
+                let isUsed = result.entities[0].nav_used;
+
+                if (!result || !result.entities || result.entities.length <= 0 || typeof (isUsed) == "undefined") {
+                    return;
+                }
+
+                if (isUsed) {
+                    let amount = typeof (result.entities[0].nav_amount) != "undefined" ? result.entities[0].nav_amount : null;
+                    amountAttr.setValue(amount);
                 }
                 else {
-                    amountAttr.setValue(result.entities[0]["nm.nav_recommendedamount"]);
+                    let amount = typeof (result.entities[0]["nm.nav_recommendedamount"]) != "undefined" ? result.entities[0]["nm.nav_recommendedamount"] : null;
+                    amountAttr.setValue(amount);
                 }
             },
             function (error) {
@@ -209,8 +220,14 @@ Navicon.nav_agreement = (function () {
      */
     let onNameChanged = function () {
         let regex = /[^\d\-]/g;
+        formatNameByRegex(regex);
     }
 
+    /**
+     * Форматировать строку по регексу.
+     * @param {*} regex 
+     * @returns 
+     */
     let formatNameByRegex = function (regex) {
         let nameAttr = Xrm.Page.getAttribute("nav_name");
 
@@ -249,8 +266,7 @@ Navicon.nav_agreement = (function () {
      */
     let hideFildsOnLoad = function () {
 
-        hiddenFields = ["nav_summa, nav_fact, nav_creditid"];
-        changeControlVisible(hiddenFields, false);
+        changeControlVisible(hiddenControlsNames, false);
 
         let disableControl = Xrm.Page.ui.tabs.get("tab_2");
         if (disableControl) {
@@ -259,23 +275,6 @@ Navicon.nav_agreement = (function () {
         else {
             alert("try to get tab_2 control, but get null");
         }
-    }
-
-    /**
-     * Показать поле Кредитная программа, если поля Контакт и Автомобиль не пустые.
-     */
-    let showCreditIfAutoAndContactNotNull = function () {
-        let contactAttr = Xrm.Page.getAttribute("nav_contact");
-        let autoIdAttr = Xrm.Page.getAttribute("nav_autoid");
-
-        if (!contactAttr || !autoIdAttr) {
-            alert("don't have all fields for showCreditIfAutoAndContactNotNull");
-            return;
-        }
-
-        onContactOrAutoChanged();
-        contactAttr.addOnChange(onContactOrAutoChanged);
-        autoIdAttr.addOnChange(onContactOrAutoChanged);
     }
 
     /**
@@ -314,7 +313,13 @@ Navicon.nav_agreement = (function () {
 
         let reqObj = JSON.parse(req.response);
 
-        let dateEnd = Date.parse(reqObj.value[0].nav_dateend);
+        let dateValue = reqObj.value[0].nav_dateend;
+
+        if (!dateValue) {
+            return;
+        }
+
+        let dateEnd = Date.parse(dateValue);
 
         if (dateEnd - agreementDate < 0) {
             alert("Выбранная кредитная программа закончила срок своего действия.");
@@ -323,42 +328,6 @@ Navicon.nav_agreement = (function () {
         else {
             return false;
         }
-    }
-
-    /**
-     * Установка обработчиков для изменения Кредитной программы.
-     */
-    let creditChanged = function () {
-        let creditIdAttr = Xrm.Page.getAttribute("nav_creditid");
-
-        if (!creditIdAttr) {
-            alert("don't have all fields for creditChanged");
-        }
-        onCreditIdChanged();
-        creditIdAttr.addOnChange(onCreditIdChanged);
-    }
-
-    /**
-     * Установка обработчиков для изменения Автомобиля.
-     */
-    let autoChanged = function () {
-        let autoIdAttr = Xrm.Page.getAttribute("nav_autoid");
-
-        if (!autoIdAttr) {
-            alert("don't have all fields for autoChanged");
-        }
-        autoIdAttr.addOnChange(onAutoChanged);
-    }
-
-    /**
-     * Установка обработчков для изменения Номера договора.
-     */
-    let nameChanged = function () {
-        let nameAttr = Xrm.Page.getAttribute("nav_name");
-        if (!nameAttr) {
-            alert("don't have all fields for nameChanged");
-        }
-        nameAttr.addOnChange(onNameChanged);
     }
 
 
@@ -370,10 +339,33 @@ Navicon.nav_agreement = (function () {
         onLoad: function () {
 
             hideFildsOnLoad();
-            showCreditIfAutoAndContactNotNull();
-            creditChanged();
-            autoChanged();
-            nameChanged()
+
+            let contactAttr = Xrm.Page.getAttribute("nav_contact");
+            let autoIdAttr = Xrm.Page.getAttribute("nav_autoid");
+            let creditIdAttr = Xrm.Page.getAttribute("nav_creditid");
+            let nameAttr = Xrm.Page.getAttribute("nav_name");
+
+            if (contactAttr && autoIdAttr) {
+
+                onContactOrAutoChanged();
+                contactAttr.addOnChange(onContactOrAutoChanged);
+                autoIdAttr.addOnChange(onContactOrAutoChanged);
+            }
+
+
+            if (creditIdAttr) {
+                onCreditIdChanged();
+                creditIdAttr.addOnChange(onCreditIdChanged);
+            }
+
+            if (autoIdAttr) {
+
+                autoIdAttr.addOnChange(onAutoChanged);
+            }
+
+            if (nameAttr) {
+                nameAttr.addOnChange(onNameChanged);
+            }
         },
 
         /**

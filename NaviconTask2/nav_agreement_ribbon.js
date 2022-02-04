@@ -53,11 +53,17 @@ Navicon.nav_agreement_ribbon = (function () {
 
             let reqObj = JSON.parse(req.response);
 
-            if(creditPeriod * newCreditAmount == 0){
+            if(!reqObj||!reqObj.value||!reqObj.value[0].nav_percent){
                 return;
             }
 
-            let newfullCreditAmount = reqObj.value[0].nav_percent / 100 * creditPeriod * newCreditAmount + newCreditAmount;
+            let creditPeriodMulNewCreditAmount = creditPeriod * newCreditAmount;
+
+            if(creditPeriodMulNewCreditAmount == 0){
+                return;
+            }
+
+            let newfullCreditAmount = reqObj.value[0].nav_percent / 100 * creditPeriodMulNewCreditAmount + newCreditAmount;
             fullCreditAmountAttr.setValue(newfullCreditAmount);
 
         }

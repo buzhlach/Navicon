@@ -1,19 +1,11 @@
 var Navicon = Navicon || {};
 
 Navicon.nav_communication = (function () {
+
     /**
-     * Установка обработчков для изменения Тип связи.
+     * Имена control для коммуникации.
      */
-    let onTypeChanged = function () {
-
-        let typeAttr = Xrm.Page.getAttribute("nav_type");
-
-        if (!typeAttr) {
-            alert("don't have all fields for onTypeChanged");
-        }
-        hidePhoneOrEmail()
-        typeAttr.addOnChange(hidePhoneOrEmail);
-    }
+    let communicationControls = ["nav_phone", "nav_email"];
 
     /**
      * Если изменяется Тип связи, открываются или закрываются поля Телефон, Email.
@@ -40,9 +32,7 @@ Navicon.nav_communication = (function () {
             }
         }
         else {
-            let communicationControls = ["nav_phone", "nav_email"];
             changeControlVisible(communicationControls, false);
-            changeControlVisible(["nav_phone", "nav_email"], false);
         };
     }
 
@@ -69,10 +59,13 @@ Navicon.nav_communication = (function () {
          * Выполняется при загрузке формы.
          */
         onLoad: function () {
-
-            let communicationControls = ["nav_phone", "nav_email"];
             changeControlVisible(communicationControls, false);
-            onTypeChanged();
+
+            let typeAttr = Xrm.Page.getAttribute("nav_type");
+            if (typeAttr) {
+                hidePhoneOrEmail();
+                typeAttr.addOnChange(hidePhoneOrEmail);
+            }
         }
     }
 })();

@@ -1,26 +1,16 @@
 var Navicon = Navicon || {};
 
 Navicon.nav_auto = (function () {
+
     /**
-     * Установка обработчков для изменения Номера договора.
+     * Имена control для пробега.
      */
-    let onUsedChanged = function () {
-
-        let usedAttr = Xrm.Page.getAttribute("nav_used");
-
-        if (!usedAttr) {
-            alert("don't have all fields for autoChanged");
-        }
-        hideUsedControlsIfUsedFalse();
-        usedAttr.addOnChange(hideUsedControlsIfUsedFalse);
-
-    }
+    let usedConrols = ["nav_km", "nav_ownerscount", "nav_isdamaged"];
 
     /**
      * Если поле С пробегом true, то открывает поля, связанные с пробегом.
      */
     let hideUsedControlsIfUsedFalse = function () {
-        let usedConrols = ["nav_km", "nav_ownerscount", "nav_isdamaged"];
 
         let usedValue = Xrm.Page.getAttribute("nav_used").getValue();
 
@@ -52,9 +42,14 @@ Navicon.nav_auto = (function () {
          */
         onLoad: function () {
 
-            let usedConrols = ["nav_km", "nav_ownerscount", "nav_isdamaged"];
             changeControlVisible(usedConrols, false);
-            onUsedChanged();
+
+            let usedAttr = Xrm.Page.getAttribute("nav_used");
+
+            if (usedAttr) {
+                hideUsedControlsIfUsedFalse();
+                usedAttr.addOnChange(hideUsedControlsIfUsedFalse);
+            }
         }
     }
 })();
