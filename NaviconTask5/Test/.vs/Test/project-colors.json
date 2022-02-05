@@ -1,0 +1,16 @@
+{
+  "Version": 1,
+  "ProjectMap": {
+    "a242a009-5fb6-44a1-a6d5-4856bc8daad2": {
+      "ProjectGuid": "a242a009-5fb6-44a1-a6d5-4856bc8daad2",
+      "DisplayName": "Test.ConsoleApp",
+      "ColorIndex": 0
+    },
+    "6207631f-f8f6-4f0f-b9d8-de3cb4b338a3": {
+      "ProjectGuid": "6207631f-f8f6-4f0f-b9d8-de3cb4b338a3",
+      "DisplayName": "Test.Plugins",
+      "ColorIndex": 1
+    }
+  },
+  "NextColorIndex": 2
+}
