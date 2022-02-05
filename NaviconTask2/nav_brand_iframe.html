@@ -81,15 +81,18 @@
                             creditPeriod = "";
                         }
 
-                        let creditDefaultHref = "https://org3fc31321.crm4.dynamics.com/main.aspx?app=d365default&forceUCI=1&pagetype=entityrecord&etn=nav_credit&id=";
-                        let modelDefaultHref = "https://org3fc31321.crm4.dynamics.com/main.aspx?app=d365default&forceUCI=1&pagetype=entityrecord&etn=nav_model&id=";
+                        let linkStartTemplate = "<a target=\"_blank\" href=\"";
+                        let globalUrl = parent.Xrm.Utility.getGlobalContext().getClientUrl();
+
+                        let creditDefaultHref = globalUrl+"/main.aspx?app=d365default&forceUCI=1&pagetype=entityrecord&etn=nav_credit&id=";
+                        let modelDefaultHref = globalUrl+"/main.aspx?app=d365default&forceUCI=1&pagetype=entityrecord&etn=nav_model&id=";
 
                         let row = table.insertRow(i + 1);
                         let creditCell = row.insertCell(0);
                         let modelCell = row.insertCell(1);
                         let creditPeriodCell = row.insertCell(2);
-                        creditCell.innerHTML = "<a target=\"_blank\" href=\"" + creditDefaultHref + creditId + "\">" + creditName + "</a>"
-                        modelCell.innerHTML = "<a target=\"_blank\" href=\"" + modelDefaultHref + modelId + "\">" + modelName + "</a>"
+                        creditCell.innerHTML = linkStartTemplate + creditDefaultHref + creditId + "\">" + creditName + "</a>"
+                        modelCell.innerHTML = linkStartTemplate + modelDefaultHref + modelId + "\">" + modelName + "</a>"
                         creditPeriodCell.innerHTML = creditPeriod;
                     }
                 },
