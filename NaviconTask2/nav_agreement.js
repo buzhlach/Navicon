@@ -286,7 +286,7 @@ Navicon.nav_agreement = (function () {
         let agreementDateAttr = Xrm.Page.getAttribute("nav_date");
 
         if (!agreementDateAttr || !creditIdAttr) {
-            alert("don't have all fields for blockSaveIfCreditProgramExpired");
+            console.warn("don't have all fields for blockSaveIfCreditProgramExpired");
             return;
         }
 
@@ -294,7 +294,7 @@ Navicon.nav_agreement = (function () {
         let agreementDate = agreementDateAttr.getValue();
 
         if (!agreementDate || !creditIdValue) {
-            alert("don't have all fields for blockSaveIfCreditProgramExpired");
+            console.warn("don't have all fields for blockSaveIfCreditProgramExpired");
             return;
         }
 
