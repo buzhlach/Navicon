@@ -10,7 +10,17 @@
       "ProjectGuid": "6207631f-f8f6-4f0f-b9d8-de3cb4b338a3",
       "DisplayName": "Test.Plugins",
       "ColorIndex": 1
+    },
+    "ca8b30ff-54cc-4151-b3ed-d70da837a310": {
+      "ProjectGuid": "ca8b30ff-54cc-4151-b3ed-d70da837a310",
+      "DisplayName": "Test.Workflows",
+      "ColorIndex": 2
+    },
+    "a2fe74e1-b743-11d0-ae1a-00a0c90fffc3": {
+      "ProjectGuid": "a2fe74e1-b743-11d0-ae1a-00a0c90fffc3",
+      "DisplayName": "Miscellaneous Files",
+      "ColorIndex": -1
     }
   },
-  "NextColorIndex": 2
+  "NextColorIndex": 3
 }

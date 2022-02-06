@@ -22,8 +22,8 @@ namespace Test.Plugins.nav_communication
 
             try
             {
-                Nav_communicationService nav_agreementService = new Nav_communicationService(service);
-                nav_agreementService.CheckIsMainCommunicationSingle(targetEntity);
+                Nav_communicationService nav_communicationService = new Nav_communicationService(service);
+                nav_communicationService.CheckIsMainCommunicationSingle(targetEntity);
             }
             catch (Exception ex)
             {
