@@ -17,64 +17,49 @@ namespace Test.Plugins.nav_communication.Handlers
             this.service = service ?? throw new ArgumentNullException(nameof(service));
         }
 
-        public void CheckIsMainCommunicationSingle(Entity targetEntity)
+        /// <summary>
+        /// Проверяет существует ли у связанного контакта средство связи с таким же типом и значением основной.
+        /// </summary>
+        /// <param name="targetEntity"></param>
+        /// <param name="preCommunicationImage"></param>
+        /// <exception cref="InvalidPluginExecutionException">Существует основное средство связи аналогичного типа</exception>
+        public void CheckIsMainCommunicationSingle(Entity targetEntity, Entity preCommunicationImage = null)
         {
-            OptionSetValue type;
-            bool isMain;
-            EntityReference contactRef;
+            OptionSetValue type = default(OptionSetValue);
+            bool isMain = false;
+            EntityReference contactRef = default(EntityReference);
 
-            if (targetEntity.Contains("nav_type"))
+            if (preCommunicationImage == null)
             {
+                if (!targetEntity.Contains("nav_main"))
+                {
+                    return;
+                }
+
                 type = targetEntity.GetAttributeValue<OptionSetValue>("nav_type");
-            }
-            else
-            {
-                var communicationId = targetEntity.Id;
-
-                var communication = service.Retrieve("nav_communication", communicationId, new ColumnSet("nav_type"));
-
-                if (!communication.Contains("nav_type"))
-                {
-                    return;
-                }
-                type = communication.GetAttributeValue<OptionSetValue>("nav_type");
-            }
-
-            if (targetEntity.Contains("nav_main"))
-            {
                 isMain = targetEntity.GetAttributeValue<bool>("nav_main");
-            }
-            else
-            {
-                var communicationId = targetEntity.Id;
-
-                var communication = service.Retrieve("nav_communication", communicationId, new ColumnSet("nav_main"));
-
-                if (!communication.Contains("nav_main"))
-                {
-                    return;
-                }
-                isMain = communication.GetAttributeValue<bool>("nav_main");
-            }
-
-            if (targetEntity.Contains("nav_contactid"))
-            {
                 contactRef = targetEntity.GetAttributeValue<EntityReference>("nav_contactid");
             }
             else
             {
-                var communicationId = targetEntity.Id;
-
-                var communication = service.Retrieve("nav_communication", communicationId, new ColumnSet("nav_contactid"));
-
-                if (!communication.Contains("nav_contactid"))
+                if (!targetEntity.Contains("nav_main") && !preCommunicationImage.Contains("nav_main"))
                 {
                     return;
                 }
-                contactRef = communication.GetAttributeValue<EntityReference>("nav_contactid");
+
+                type = (targetEntity.Contains("nav_type"))
+                    ? targetEntity.GetAttributeValue<OptionSetValue>("nav_type")
+                    : preCommunicationImage.GetAttributeValue<OptionSetValue>("nav_type");
+                isMain = targetEntity.GetAttributeValue<bool>("nav_main");
+                contactRef = (targetEntity.Contains("nav_contactid"))
+                    ? targetEntity.GetAttributeValue<EntityReference>("nav_contactid")
+                    : preCommunicationImage.GetAttributeValue<EntityReference>("nav_contactid");
             }
 
-            var contactId = contactRef.Id;
+            if ((type == null) || (contactRef == null))
+            {
+                return;
+            }
 
             var mainCommunicationsForContactQuery = new QueryExpression
             {
@@ -94,7 +79,7 @@ namespace Test.Plugins.nav_communication.Handlers
                         {
                             AttributeName = "nav_contactid",
                             Operator = ConditionOperator.Equal,
-                            Values ={contactId}
+                            Values ={contactRef.Id}
                         },
                         new ConditionExpression
                         {
@@ -116,7 +101,7 @@ namespace Test.Plugins.nav_communication.Handlers
 
             if (mainCommunicationsForContact.Count() > 0)
             {
-                throw new Exception("Основное средство связи с таким типом уже существует для выбранного контакта!");
+                throw new InvalidPluginExecutionException("Основное средство связи с таким типом уже существует для выбранного контакта!");
             }
         }
     }

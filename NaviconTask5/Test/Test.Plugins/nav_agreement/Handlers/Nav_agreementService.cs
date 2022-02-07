@@ -19,6 +19,11 @@ namespace Test.Plugins.nav_agreement.Handlers
             this.tracingService = tracingService ?? throw new ArgumentException(nameof(service));
         }
 
+        /// <summary>
+        /// Устанавливает дату первого договора в связанный контакт, если это поле не пусто.
+        /// </summary>
+        /// <param name="targetEntity"></param>
+        /// <exception cref="InvalidPluginExecutionException"></exception>
         public void SetContactFirstAgreementDate(Entity targetEntity)
         {
             var contactRef = targetEntity.GetAttributeValue<EntityReference>("nav_contact");
@@ -27,7 +32,7 @@ namespace Test.Plugins.nav_agreement.Handlers
             if ((contactRef == null) || (agreementDate == null))
             {
                 tracingService.Trace("Пытался получить контакт и дату договора, но значение не найдено.");
-                throw new NullReferenceException(nameof(contactRef));
+                throw new InvalidPluginExecutionException(nameof(contactRef));
             }
 
             var contactId = contactRef.Id;
@@ -43,58 +48,39 @@ namespace Test.Plugins.nav_agreement.Handlers
             service.Update(contact);
         }
 
-        public void SetFactTrueIfSummaEqualFactSumma(Entity targetEntity)
+        /// <summary>
+        /// Устанавливает статус Оплачен, если оплаченная сумма сравнялась с суммой договора с кредитом.
+        /// </summary>
+        /// <param name="targetEntity"></param>
+        /// <param name="preAgreemenetImage"></param>
+        public void SetFactTrueIfSummaEqualFactSumma(Entity targetEntity, Entity preAgreemenetImage = null)
         {
+            decimal fullCreditSum = Decimal.Zero;
             decimal fullSum = Decimal.Zero;
             decimal factSum = Decimal.Zero;
 
-            if (targetEntity.Contains("nav_fullcreditamount"))
+            if(preAgreemenetImage == null)
             {
-                fullSum = (decimal)targetEntity.GetAttributeValue<Money>("nav_fullcreditamount").Value;
+                fullCreditSum = targetEntity.GetAttributeValue<Money>("nav_fullcreditamount")?.Value ?? Decimal.Zero;
+                fullSum = targetEntity.GetAttributeValue<Money>("nav_summa")?.Value ?? Decimal.Zero;
+                factSum = targetEntity.GetAttributeValue<Money>("nav_factsumma")?.Value ?? Decimal.Zero;
             }
+            
             else
             {
-                var targetId = targetEntity.Id;
-
-                var agreement = service.Retrieve("nav_agreement", targetId, new ColumnSet("nav_fullcreditamount","nav_summa"));
-
-                if (!agreement.Contains("nav_fullcreditamount"))
-                {
-                    if (targetEntity.Contains("nav_summa"))
-                    {
-                        fullSum = (decimal)targetEntity.GetAttributeValue<Money>("nav_summa").Value;
-                    }
-                    else
-                    {
-
-                        if (agreement.Contains("nav_summa"))
-                        {
-                            fullSum = (decimal)agreement.GetAttributeValue<Money>("nav_fullcreditamount").Value;
-                        }
-                    }
-                }
-                else
-                {
-                    fullSum = (decimal)agreement.GetAttributeValue<Money>("nav_fullcreditamount").Value;
-                }
+                fullCreditSum = (targetEntity.Contains("nav_fullcreditamount"))
+                    ? targetEntity.GetAttributeValue<Money>("nav_fullcreditamount")?.Value ?? Decimal.Zero
+                    : preAgreemenetImage.GetAttributeValue<Money>("nav_fullcreditamount")?.Value ?? Decimal.Zero;
+                fullSum = (targetEntity.Contains("nav_summa"))
+                    ? targetEntity.GetAttributeValue<Money>("nav_summa")?.Value ?? Decimal.Zero
+                    : preAgreemenetImage.GetAttributeValue<Money>("nav_summa")?.Value ?? Decimal.Zero;
+                factSum = (targetEntity.Contains("nav_factsumma"))
+                    ? targetEntity.GetAttributeValue<Money>("nav_factsumma")?.Value ?? Decimal.Zero
+                    : preAgreemenetImage.GetAttributeValue<Money>("nav_factsumma")?.Value ?? Decimal.Zero;
             }
-
-            if (targetEntity.Contains("nav_factsumma"))
-            {
-                factSum = (decimal)targetEntity.GetAttributeValue<Money>("nav_factsumma").Value;
-            }
-            else
-            {
-                var targetId = targetEntity.Id;
-
-                var agreement = service.Retrieve("nav_agreement", targetId, new ColumnSet("nav_factsumma"));
-
-                if (agreement.Contains("nav_factsumma"))
-                {
-                    factSum = (decimal)agreement.GetAttributeValue<Money>("nav_factsumma").Value;
-                }
-            }
-            targetEntity["nav_fact"] = (Decimal.Round(factSum,2) == Decimal.Round(fullSum,2));
+            targetEntity["nav_fact"] = (fullCreditSum > fullSum)
+                ? (Decimal.Round(factSum, 2) == Decimal.Round(fullCreditSum, 2))
+                : (Decimal.Round(factSum, 2) == Decimal.Round(fullSum, 2));
         }
     }
 }

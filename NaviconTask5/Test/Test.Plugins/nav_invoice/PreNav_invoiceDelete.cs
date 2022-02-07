@@ -17,13 +17,21 @@ namespace Test.Plugins.nav_invoice
             var pluginContext = (IPluginExecutionContext)serviceProvider.GetService(typeof(IPluginExecutionContext));
             var targetEntityRef = (EntityReference)pluginContext.InputParameters["Target"];
 
+            var preDeleteInvoiceImage = (Entity)pluginContext.PreEntityImages["PreDeleteInvoiceImage"];
+
+            if (preDeleteInvoiceImage == null)
+            {
+                traceService.Trace("Не смог получить PreDeleteInvoiceImage");
+                throw new InvalidPluginExecutionException("Не смог получить PreDeleteInvoiceImage");
+            }
+
             var serviceFactory = (IOrganizationServiceFactory)serviceProvider.GetService(typeof(IOrganizationServiceFactory));
             var service = serviceFactory.CreateOrganizationService(Guid.Empty);
 
             try
             {
                 Nav_invoiceService nav_invoiceService = new Nav_invoiceService(service);
-                nav_invoiceService.RecalculateFactSummaInNav_agreementOnDelete(targetEntityRef);
+                nav_invoiceService.RecalculateFactSummaInNav_agreement(preDeleteInvoiceImage,false,true);
             }
             catch (Exception ex)
             {

@@ -17,13 +17,21 @@ namespace Test.Plugins.nav_invoice
             var pluginContext = (IPluginExecutionContext)serviceProvider.GetService(typeof(IPluginExecutionContext));
             var targetEntity = (Entity)pluginContext.InputParameters["Target"];
 
+            var postUpdateInvoiceImage = (Entity)pluginContext.PostEntityImages["PostUpdateInvoiceImage"];
+
+            if (postUpdateInvoiceImage == null)
+            {
+                traceService.Trace("Не смог получить PostUpdateInvoiceImage");
+                throw new InvalidPluginExecutionException("Не смог получить PostUpdateInvoiceImage");
+            }
+
             var serviceFactory = (IOrganizationServiceFactory)serviceProvider.GetService(typeof(IOrganizationServiceFactory));
             var service = serviceFactory.CreateOrganizationService(Guid.Empty);
 
             try
             {
                 Nav_invoiceService nav_invoiceService = new Nav_invoiceService(service);
-                nav_invoiceService.RecalculateFactSummaInNav_agreementOnUpdate(targetEntity);
+                nav_invoiceService.RecalculateFactSummaInNav_agreement(postUpdateInvoiceImage,true);
             }
             catch (Exception ex)
             {

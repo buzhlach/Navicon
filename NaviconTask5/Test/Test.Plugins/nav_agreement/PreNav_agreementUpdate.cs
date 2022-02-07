@@ -16,6 +16,13 @@ namespace Test.Plugins.nav_agreement
             var traceService = (ITracingService)serviceProvider.GetService(typeof(ITracingService));
             var pluginContext = (IPluginExecutionContext)serviceProvider.GetService(typeof(IPluginExecutionContext));
             var targetEntity = (Entity)pluginContext.InputParameters["Target"];
+            var preAgreementImage = (Entity)pluginContext.PreEntityImages["PreAgreementImage"];
+
+            if (preAgreementImage == null)
+            {
+                traceService.Trace("Не смог получить PreAgreementImage");
+                throw new InvalidPluginExecutionException("Не смог получить PreAgreementImage");
+            }
 
             var serviceFactory = (IOrganizationServiceFactory)serviceProvider.GetService(typeof(IOrganizationServiceFactory));
             var service = serviceFactory.CreateOrganizationService(Guid.Empty);
@@ -23,7 +30,7 @@ namespace Test.Plugins.nav_agreement
             try
             {
                 Nav_agreementService nav_agreementService = new Nav_agreementService(service, traceService);
-                nav_agreementService.SetFactTrueIfSummaEqualFactSumma(targetEntity);
+                nav_agreementService.SetFactTrueIfSummaEqualFactSumma(targetEntity,preAgreementImage);
             }
             catch (Exception ex)
             {

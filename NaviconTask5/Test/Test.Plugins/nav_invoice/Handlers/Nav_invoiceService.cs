@@ -34,164 +34,94 @@ namespace Test.Plugins.nav_invoice.Handlers
         {
             var agreement = service.Retrieve("nav_agreement", agreementId, new ColumnSet("nav_factsumma"));
 
-            var factSum = (agreement.Contains("nav_factsumma")) ?
-                (decimal) agreement.GetAttributeValue<Money>("nav_factsumma").Value :
-                Decimal.Zero;
+            var factSum =  agreement.GetAttributeValue<Money>("nav_factsumma")?.Value ?? Decimal.Zero;
 
             factSum += addedSum;
 
             agreement["nav_factsumma"] = new Money(factSum);
             service.Update(agreement);
-
         }
 
-        public void RecalculateFactSummaInNav_agreementOnCreate(Entity targetEntity)
+        public void RecalculateFactSummaInNav_agreement(Entity targetEntity, bool isOnUpdate = false,bool isOnDelete = false)
         {
-            if (!targetEntity.Contains("nav_fact")|| !targetEntity.Contains("nav_amount"))
+            if (!targetEntity.Contains("nav_fact"))
             {
                 return;
             }
 
             var fact = targetEntity.GetAttributeValue<bool>("nav_fact");
             var agreementRef = targetEntity.GetAttributeValue<EntityReference>("nav_dogovorid");
-            var amount = (decimal)targetEntity.GetAttributeValue<Money>("nav_amount").Value;
+            var amount = targetEntity.GetAttributeValue<Money>("nav_amount")?.Value ?? Decimal.Zero;
 
-            if (!fact || (agreementRef==null)) {
+            if ((agreementRef==null)) {
                 return;
             }
-
-            var agreementId = agreementRef.Id;
-            AddToNav_agreementFactSumma(agreementId, amount);
-        }
-
-        public void RecalculateFactSummaInNav_agreementOnUpdate(Entity targetEntity)
-        {
-            if (!targetEntity.Contains("nav_fact"))
-            {
-                return;
-            }
-
-            var fact = targetEntity.GetAttributeValue<bool>("nav_fact");
-            var invoiceId = targetEntity.Id;
-
-            var invoice = service.Retrieve("nav_invoice", invoiceId, new ColumnSet("nav_amount","nav_dogovorid"));
-
-            var agreementRef = invoice.GetAttributeValue<EntityReference>("nav_dogovorid");
-
-            if ((agreementRef == null)||!invoice.Contains("nav_amount"))
-            {
-                return;
-            }
-            var amount = (decimal)invoice.GetAttributeValue<Money>("nav_amount").Value;
-
-            var agreementId = agreementRef.Id;
 
             if (fact)
             {
-                AddToNav_agreementFactSumma(agreementId, amount);
+                if (isOnDelete)
+                {
+                    AddToNav_agreementFactSumma(agreementRef.Id, -amount);
+                }
+                else
+                {
+                    AddToNav_agreementFactSumma(agreementRef.Id, amount);
+                }
             }
-            else
+            else if (isOnUpdate)
             {
-                AddToNav_agreementFactSumma(agreementId, -amount);
+                AddToNav_agreementFactSumma(agreementRef.Id, -amount);
             }
-            
         }
 
-        public void RecalculateFactSummaInNav_agreementOnDelete(EntityReference targetEntityRef)
-        { 
 
-            var targetEntityId = targetEntityRef.Id;
-
-            var invoice = service.Retrieve("nav_invoice", targetEntityId, new ColumnSet("nav_amount", "nav_dogovorid", "nav_fact"));
-
-            if (!invoice.Contains("nav_fact")|| !invoice.Contains("nav_amount"))
-            {
-                return;
-            }
-
-            var fact = invoice.GetAttributeValue<bool>("nav_fact");
-            var amount = (decimal)invoice.GetAttributeValue<Money>("nav_amount").Value;
-            var agreementRef = invoice.GetAttributeValue<EntityReference>("nav_dogovorid");
-            
-
-            if (!fact || (agreementRef == null))
-            {
-                return;
-            }
-
-            var agreementId = agreementRef.Id;
-            AddToNav_agreementFactSumma(agreementId, -amount);
-        }
-
-        public void CheckIsAgreementFactSumOverpayed(Entity targetEntity)
+        public void CheckIsAgreementFactSumOverpayed(Entity targetEntity, Entity preUpdateAgreementImage=null)
         {
-            if (!targetEntity.Contains("nav_fact"))
-            {
-                return;
-            }
-
-            var fact = targetEntity.GetAttributeValue<bool>("nav_fact");
-            EntityReference agreementRef;
+            var fact = false;
+            EntityReference agreementRef = default(EntityReference);
             decimal amount = Decimal.Zero;
 
-            if (!fact)
+            if (preUpdateAgreementImage == null)
+            {
+                if (!targetEntity.Contains("nav_fact"))
+                {
+                    return;
+                }
+
+                fact = targetEntity.GetAttributeValue<bool>("nav_fact");
+                agreementRef = targetEntity.GetAttributeValue<EntityReference>("nav_dogovorid");
+                amount = targetEntity.GetAttributeValue<Money>("nav_amount")?.Value ?? Decimal.Zero;
+            }
+            else
+            {
+                if (!targetEntity.Contains("nav_fact") && !preUpdateAgreementImage.Contains("nav_fact"))
+                {
+                    return;
+                }
+
+                fact = (targetEntity.Contains("nav_fact"))
+                    ? targetEntity.GetAttributeValue<bool>("nav_fact")
+                    : preUpdateAgreementImage.GetAttributeValue<bool>("nav_fact");
+                agreementRef = (targetEntity.Contains("nav_dogovorid"))
+                    ? targetEntity.GetAttributeValue<EntityReference>("nav_dogovorid")
+                    : targetEntity.GetAttributeValue<EntityReference>("nav_dogovorid");
+                amount = (targetEntity.Contains("nav_amount"))
+                    ? targetEntity.GetAttributeValue<Money>("nav_amount")?.Value ?? Decimal.Zero
+                    : preUpdateAgreementImage.GetAttributeValue<Money>("nav_amount")?.Value ?? Decimal.Zero;
+            }
+
+            if (!fact || agreementRef==null)
             {
                 return;
             }
 
-            if (targetEntity.Contains("nav_dogovorid"))
-            {
-                agreementRef = targetEntity.GetAttributeValue<EntityReference>("nav_dogovorid");
-            }
-            else
-            {
-                var invoiceId = targetEntity.Id;
+            var agreement = service.Retrieve("nav_agreement", agreementRef.Id, new ColumnSet("nav_factsumma","nav_fullcreditamount","nav_summa"));
 
-                var invoice = service.Retrieve("nav_invoice", invoiceId, new ColumnSet("nav_dogovorid"));
+            var factSum = agreement.GetAttributeValue<Money>("nav_factsumma")?.Value ?? Decimal.Zero;
 
-                if (!invoice.Contains("nav_dogovorid"))
-                {
-                    return;
-                }
-                agreementRef = invoice.GetAttributeValue<EntityReference>("nav_dogovorid");
-            }
-
-            if (targetEntity.Contains("nav_amount"))
-            {
-                amount = (decimal)targetEntity.GetAttributeValue<Money>("nav_amount").Value;
-            }
-            else
-            {
-                var invoiceId = targetEntity.Id;
-
-                var invoice = service.Retrieve("nav_invoice", invoiceId, new ColumnSet("nav_amount"));
-
-                if (!invoice.Contains("nav_amount"))
-                {
-                    return;
-                }
-                amount = (decimal)invoice.GetAttributeValue<Money>("nav_amount").Value;
-
-            }
-
-            var agreementId = agreementRef.Id;
-
-            var agreement = service.Retrieve("nav_agreement", agreementId, new ColumnSet("nav_factsumma","nav_fullcreditamount","nav_summa"));
-
-            var factSum = (agreement.Contains("nav_factsumma")) ?
-                (decimal)agreement.GetAttributeValue<Money>("nav_factsumma").Value :
-                Decimal.Zero;
-
-            decimal allSum = Decimal.Zero;
-
-            if (agreement.Contains("nav_fullcreditamount"))
-            {
-                allSum = (decimal)agreement.GetAttributeValue<Money>("nav_fullcreditamount").Value;
-            }
-            else if (agreement.Contains("nav_summa"))
-            {
-                allSum = (decimal)agreement.GetAttributeValue<Money>("nav_summa").Value;
-            }
+            var allSum = (agreement.Contains("nav_fullcreditamount"))
+                ? agreement.GetAttributeValue<Money>("nav_fullcreditamount")?.Value ?? Decimal.Zero
+                : agreement.GetAttributeValue<Money>("nav_summa")?.Value ?? Decimal.Zero;
 
             if (factSum + amount > allSum)
             {

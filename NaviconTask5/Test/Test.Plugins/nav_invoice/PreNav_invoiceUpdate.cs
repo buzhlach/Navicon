@@ -17,13 +17,21 @@ namespace Test.Plugins.nav_invoice
             var pluginContext = (IPluginExecutionContext)serviceProvider.GetService(typeof(IPluginExecutionContext));
             var targetEntity = (Entity)pluginContext.InputParameters["Target"];
 
+            var preUpdateInvoiceImage = (Entity)pluginContext.PreEntityImages["PreUpdateInvoiceImage"];
+            
+            if (preUpdateInvoiceImage == null)
+            {
+                traceService.Trace("Не смог получить PreUpdateInvoiceImage");
+                throw new InvalidPluginExecutionException("Не смог получить PreUpdateInvoiceImage");
+            }
+
             var serviceFactory = (IOrganizationServiceFactory)serviceProvider.GetService(typeof(IOrganizationServiceFactory));
             var service = serviceFactory.CreateOrganizationService(Guid.Empty);
 
             try
             {
                 Nav_invoiceService nav_invoiceService = new Nav_invoiceService(service);
-                nav_invoiceService.CheckIsAgreementFactSumOverpayed(targetEntity);
+                nav_invoiceService.CheckIsAgreementFactSumOverpayed(targetEntity,preUpdateInvoiceImage);
             }
             catch (Exception ex)
             {

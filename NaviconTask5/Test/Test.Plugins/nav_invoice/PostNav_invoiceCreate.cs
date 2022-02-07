@@ -23,7 +23,7 @@ namespace Test.Plugins.nav_invoice
             try
             {
                 Nav_invoiceService nav_invoiceService = new Nav_invoiceService(service);
-                nav_invoiceService.RecalculateFactSummaInNav_agreementOnCreate(targetEntity);
+                nav_invoiceService.RecalculateFactSummaInNav_agreement(targetEntity);
             }
             catch (Exception ex)
             {
